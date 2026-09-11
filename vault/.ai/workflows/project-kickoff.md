@@ -10,7 +10,7 @@
   gap — if you lack information to write a section safely, STOP and ask.
 -->
 
-> **Talent Graph — current status:** Step 0–3 done. Step 4 (Architecture + Matching Model) drafted — backend (Python/FastAPI), frontend (React), Neo4j integration, agent/function split, weights and explanation persistence all decided; only hosting is still open (depends on what the IBM ecosystem offers on hackathon day). Step 5 (Design Doc) not started. `harness.md` and `docs/edital-e-avaliacao.md` were pre-filled outside this flow because their content was already fixed (Erick's own stated framework; the hackathon's own rules) — everything else below still goes through the full interview.
+> **Talent Graph — kickoff complete (11/09).** All 5 steps approved end to end. Remaining open items: hosting (decided on hackathon day, depending on what the IBM ecosystem offers) and seeding the Task Tracker (`task-queue.md` + `tasks/`) — deliberately deferred until Erick brings the real case (revealed 11/09, 19h). Do not seed tasks before that. `harness.md` and `docs/edital-e-avaliacao.md` were pre-filled outside this flow because their content was already fixed (Erick's own stated framework; the hackathon's own rules) — everything else below still goes through the full interview.
 >
 > **Narrative rule (10/09, important for the pitch):** never describe Talent Graph as just "an explainable squad recommendation." It's a continuous management/learning/organizational-culture process; squad recommendation is one output of it, not the product's identity. See `ai.md` hard rule 10.
 >

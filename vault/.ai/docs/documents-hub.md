@@ -18,6 +18,7 @@
 | Architecture | Architecture | [../architecture.md](../architecture.md) | Rascunho — hospedagem em aberto | 2026-09-11 |
 | ARD | ARD | [ARD.md](ARD.md) | Rascunho — ARD-01 a ARD-05 registrados | 2026-09-11 |
 | Matching Model | Matching Model | [matching-model.md](matching-model.md) | Rascunho completo — Nível 3 excluído, split agente/função e pesos decididos | 2026-09-11 |
-| Design Doc | Design Doc | [design-doc.md](design-doc.md) | Não iniciado — Step 5 | — |
+| Design Doc | Design Doc | [design-doc.md](design-doc.md) | Aprovado | 2026-09-11 |
+| Diretrizes de UI | Design Doc | [../ui_guidelines.md](../ui_guidelines.md) | Aprovado | 2026-09-11 |
 
 **Pendência conhecida:** nenhum documento acima cobre "Arquitetura de Negócios & Custos" (20% da nota do hackathon) — ver [edital-e-avaliacao.md](edital-e-avaliacao.md).

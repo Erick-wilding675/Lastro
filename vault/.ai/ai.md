@@ -7,7 +7,7 @@
   arquivo específico do tópico que precisar.
 -->
 
-> **Construindo a especificação do zero?** Siga [workflows/project-kickoff.md](workflows/project-kickoff.md) — entrevista guiada, um documento por vez. **Step 1, 2 e 3 aprovados. Step 4 (Architecture + Matching Model) rascunhado — só falta fechar hospedagem (dia do hackathon) e aprovação final. Step 5 (Design Doc) ainda não iniciado.**
+> **Kickoff completo (11/09).** Todos os 5 steps de [workflows/project-kickoff.md](workflows/project-kickoff.md) aprovados: System Description, SRS, Use Cases, Data Model, Wireframes, Architecture + Matching Model, Design Doc + UI Guidelines. Únicas pendências: hospedagem (decide no dia do hackathon, conforme o que o ecossistema IBM disponibilizar) e o Task Tracker (`workflows/task-queue.md` + `tasks/`), que só é seedado quando o case oficial for revelado (11/09, 19h) — ver Hard Rule 9.
 
 ---
 
