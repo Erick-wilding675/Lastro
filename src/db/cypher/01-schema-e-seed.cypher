@@ -143,7 +143,11 @@ MATCH (c:Cliente {id:'CLI003'}), (s:Socio {id:'SOC003'}) MERGE (c)-[:TEM_SOCIO {
 MATCH (c:Cliente {id:'CLI008'}), (s:Socio {id:'SOC004'}) MERGE (c)-[:TEM_SOCIO {participacao:1.00}]->(s);
 
 // --- Grupos econômicos ------------------------------------------------
+// FIX (12/09): CLI001 faltava no GRP001 — sem esse vínculo, o vetor
+// "mesmo grupo econômico" (peso 0.90) entre CLI001 e CLI005 nunca disparava
+// e o cenário de demo descrito em estado-atual.md ficava incompleto.
 
+MATCH (c:Cliente {id:'CLI001'}), (g:GrupoEconomico {id:'GRP001'}) MERGE (c)-[:PERTENCE_A]->(g);
 MATCH (c:Cliente {id:'CLI003'}), (g:GrupoEconomico {id:'GRP001'}) MERGE (c)-[:PERTENCE_A]->(g);
 MATCH (c:Cliente {id:'CLI005'}), (g:GrupoEconomico {id:'GRP001'}) MERGE (c)-[:PERTENCE_A]->(g);
 MATCH (c:Cliente {id:'CLI006'}), (g:GrupoEconomico {id:'GRP002'}) MERGE (c)-[:PERTENCE_A]->(g);

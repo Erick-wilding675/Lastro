@@ -69,9 +69,13 @@ CALL {
     RETURN v AS vizinho, 0.40 AS peso, 'sistemico' AS canal,
            'Mesma cultura: ' + cu.nome AS via
 }
-WITH vizinho, max(peso) AS risco_exposicao, collect(via) AS caminhos,
+WITH origem, vizinho, max(peso) AS risco_exposicao, collect(via) AS caminhos,
      collect(DISTINCT canal) AS canais
-MERGE (o:Cliente {id: $origem})-[x:EXPOSTO_A]->(vizinho)
+// FIX (12/09): MERGE (o:Cliente {id:$origem})-[x:EXPOSTO_A]->(vizinho) num único
+// padrão fazia o Neo4j tentar recriar o nó Cliente do zero (pattern não existia
+// inteiro ainda) e batia na constraint de unicidade (index entry conflict).
+// Reaproveitando "origem", já casado no MATCH inicial, o MERGE só resolve a relação.
+MERGE (origem)-[x:EXPOSTO_A]->(vizinho)
   SET x.peso = risco_exposicao,
       x.caminho = caminhos,
       x.canais = canais,
