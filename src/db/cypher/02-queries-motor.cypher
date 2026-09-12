@@ -153,8 +153,15 @@ WITH c, exposicao, risco_pagamento, risco_juridico, risco_garantia, risco_contag
 WITH c, exposicao, risco_pagamento, risco_juridico, risco_garantia, risco_contagio, risco_agro,
      toInteger(round(1000 * (1.0 - risco_medio))) AS score
 
+// FIX (12/09): sem essa regra, um cliente já em RJ podia sair com rating C —
+// a media dos 5 componentes diluia o evento juridico mais grave do sistema
+// (contagio e agro ficam em 0 para quem e a "origem" da crise, nao o alvo dela).
+// RJ e um fato juridico ja consumado, nao uma estimativa probabilistica: entra
+// como override antes das faixas de score, mantendo score e decomposicao
+// intactos para auditoria.
 SET c.score = score,
-    c.rating = CASE WHEN score >= 800 THEN 'A'
+    c.rating = CASE WHEN c.situacao = 'recuperacao_judicial' THEN 'D'
+                    WHEN score >= 800 THEN 'A'
                     WHEN score >= 600 THEN 'B'
                     WHEN score >= 400 THEN 'C'
                     ELSE 'D' END,
