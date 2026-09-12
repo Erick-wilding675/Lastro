@@ -1,0 +1,20 @@
+# Dependências
+node_modules/
+
+# Build / cache
+dist/
+build/
+.vite/
+
+# Ambiente e segredos (NUNCA commitar)
+.env
+.env.*
+!.env.example
+
+# Deploy
+.vercel/
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+*.log
