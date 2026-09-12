@@ -1,0 +1,105 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Lastro - Tool do Agente Coletor & Parser",
+    "description": "Registra no grafo do Lastro um evento de risco encontrado em fonte publica (DJE, PGFN, IBAMA, Receita Federal, Conab/INMET). Todo evento carrega fonte: inferencia de IA nunca vira fato sem origem.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://SUBSTITUA-PELA-URL-PUBLICA"
+    }
+  ],
+  "paths": {
+    "/eventos/registrar": {
+      "post": {
+        "operationId": "registrar_evento",
+        "summary": "Registra um evento de risco sobre um cliente",
+        "description": "Grava um evento de risco de credito sobre um cliente da carteira. Use apos extrair um fato verificavel de uma fonte publica. O tipo deve ser um dos valores permitidos; se o achado nao encaixar em nenhum, NAO chame esta ferramenta e devolva o achado como nao classificado para revisao humana. Nunca registre evento sem fonte identificada.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NovoEvento"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evento gravado no grafo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Evento gravado, com identificador e vinculo ao cliente."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Payload invalido."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "NovoEvento": {
+        "type": "object",
+        "required": [
+          "id",
+          "cliente",
+          "tipo",
+          "data",
+          "fonte",
+          "severidade",
+          "descricao"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identificador unico do evento, ex.: EVT010."
+          },
+          "cliente": {
+            "type": "string",
+            "description": "Identificador do cliente no grafo, ex.: CLI002."
+          },
+          "tipo": {
+            "type": "string",
+            "description": "Tipo do evento. Somente valores do vocabulario fechado.",
+            "enum": [
+              "pedido_rj",
+              "protesto",
+              "execucao_fiscal",
+              "embargo_ambiental",
+              "quebra_safra",
+              "alteracao_qsa",
+              "alerta_zarc",
+              "queda_preco"
+            ]
+          },
+          "data": {
+            "type": "string",
+            "description": "Data do fato na fonte, formato YYYY-MM-DD."
+          },
+          "fonte": {
+            "type": "string",
+            "description": "Origem verificavel do fato, ex.: DJE, PGFN, IBAMA, Receita Federal, Conab/INMET, DataJud."
+          },
+          "severidade": {
+            "type": "number",
+            "format": "float",
+            "description": "Severidade de 0 a 1 atribuida ao evento."
+          },
+          "descricao": {
+            "type": "string",
+            "description": "Descricao factual curta do que a fonte registra."
+          }
+        }
+      }
+    }
+  }
+}

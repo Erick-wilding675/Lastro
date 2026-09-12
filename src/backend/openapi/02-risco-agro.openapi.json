@@ -1,0 +1,82 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Lastro - Tool do Agente de Risco Agro & Climatico",
+    "description": "Devolve o contexto produtivo bruto de um cliente da carteira: regiao, cultura, imoveis (com embargo IBAMA) e eventos registrados com fonte e data.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://SUBSTITUA-PELA-URL-PUBLICA"
+    }
+  ],
+  "paths": {
+    "/agentes/contexto/{cliente}": {
+      "get": {
+        "operationId": "obter_contexto_cliente",
+        "summary": "Contexto produtivo e eventos de um cliente",
+        "description": "Retorna o contexto bruto do cliente para avaliacao de risco agroclimatico: dados cadastrais e rating atual, regioes em que opera, culturas plantadas, imoveis com area e situacao de embargo ambiental, e a lista de eventos registrados com tipo, data, fonte, severidade e descricao. Use antes de avaliar se as condicoes produtivas agravam o risco de pagamento na safra. Nao ha estimativa de produtividade nesta resposta: apenas fatos com fonte.",
+        "parameters": [
+          {
+            "name": "cliente",
+            "in": "path",
+            "required": true,
+            "description": "Identificador do cliente no grafo, ex.: CLI002.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contexto do cliente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cliente": {
+                      "type": "object",
+                      "description": "id, nome, situacao, rating, score, exposicao_total, dias_atraso_max."
+                    },
+                    "regioes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Regioes em que o cliente opera."
+                    },
+                    "culturas": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Culturas plantadas."
+                    },
+                    "imoveis": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "Imoveis com id, area_ha e embargo_ibama."
+                    },
+                    "eventos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "Eventos com tipo, data, fonte, severidade e descricao."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cliente nao existe no grafo."
+          }
+        }
+      }
+    }
+  }
+}

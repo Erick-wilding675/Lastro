@@ -1,0 +1,85 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Lastro - Tools do Motor de Decisao & Scoring",
+    "description": "Dispara o calculo deterministico do Lastro: propagacao de exposicao pela rede e recalculo de score 0-1000 e rating A-D. O agente aciona e le o resultado; o numero nunca e gerado por modelo.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://SUBSTITUA-PELA-URL-PUBLICA"
+    }
+  ],
+  "paths": {
+    "/contagio/propagar/{origem}": {
+      "post": {
+        "operationId": "propagar_contagio",
+        "summary": "Propaga a exposicao a partir de um cliente que deteriorou",
+        "description": "Dado um cliente de origem que sofreu um evento (pedido de RJ, protesto, quebra de safra), acende os clientes vizinhos expostos pela rede e devolve, para cada um, o peso e o CAMINHO do vinculo que trouxe o risco (grupo economico, avalista, socio em comum, regiao e cultura com choque confirmado). Execute SEMPRE antes de recalcular_scoring: o risco herdado da rede e um componente do score. O calculo e deterministico e roda no backend.",
+        "parameters": [
+          {
+            "name": "origem",
+            "in": "path",
+            "required": true,
+            "description": "Identificador do cliente de origem, ex.: CLI001.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clientes expostos com peso e caminho do vinculo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "origem": {
+                      "type": "string"
+                    },
+                    "expostos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "Cada item traz o cliente atingido, o peso e o caminho do vinculo."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scoring/recalcular": {
+      "post": {
+        "operationId": "recalcular_scoring",
+        "summary": "Recalcula score 0-1000 e rating A-D de toda a carteira",
+        "description": "Recalcula o score de credito de toda a carteira e devolve, por cliente, o score decomposto por componente e o rating resultante. Execute DEPOIS de propagar_contagio. O score sai de query deterministica: nunca estime, altere ou arredonde um valor desta resposta, e ao relatar mudanca de rating sempre diga qual componente a causou.",
+        "responses": {
+          "200": {
+            "description": "Score e rating recalculados por cliente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "clientes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "Cada item traz id, nome, score, rating e score_decomposto."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

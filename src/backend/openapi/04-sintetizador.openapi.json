@@ -1,0 +1,75 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Lastro - Tool do Agente Sintetizador de Relatorios",
+    "description": "Entrega o dossie completo de um cliente: score decomposto, exposicao herdada com o caminho do vinculo, recomendacoes de recuperacao e recebiveis em aberto.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://SUBSTITUA-PELA-URL-PUBLICA"
+    }
+  ],
+  "paths": {
+    "/agentes/dossie/{cliente}": {
+      "get": {
+        "operationId": "obter_dossie_cliente",
+        "summary": "Dossie completo do cliente para o parecer de risco",
+        "description": "Retorna tudo que e preciso para redigir o Relatorio Padronizado de Risco de Credito: dados do cliente com score decomposto por componente e rating, a exposicao herdada de outros clientes com peso e caminho do vinculo, as estrategias de recuperacao recomendadas com valor recuperavel e prazo, e os recebiveis em aberto ou vencidos com valor, dias de atraso, tipo de garantia e estagio juridico. Todo numero do parecer deve vir desta resposta.",
+        "parameters": [
+          {
+            "name": "cliente",
+            "in": "path",
+            "required": true,
+            "description": "Identificador do cliente no grafo, ex.: CLI002.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dossie do cliente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cliente": {
+                      "type": "object",
+                      "description": "id, nome, situacao, rating, score, score_decomposto, exposicao_total."
+                    },
+                    "contagio": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "Exposicao herdada: de quem veio, peso e caminho do vinculo."
+                    },
+                    "recomendacoes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "Estrategia, valor recuperavel estimado, prazo e indice."
+                    },
+                    "recebiveis": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "Recebiveis em aberto ou vencidos com valor, dias de atraso, garantia e estagio juridico."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cliente nao existe no grafo."
+          }
+        }
+      }
+    }
+  }
+}
