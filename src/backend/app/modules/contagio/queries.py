@@ -64,9 +64,14 @@ CALL {
     RETURN v AS vizinho, 0.40 AS peso, 'sistemico' AS canal,
            'Mesma cultura: ' + cu.nome AS via
 }
-WITH vizinho, max(peso) AS risco, collect(via) AS caminhos,
+// `origem` tem de atravessar o WITH. Sem ele aqui, o MERGE abaixo vira um MERGE
+// de PADRÃO COMPLETO: como a aresta ainda não existe, o Neo4j tenta criar o
+// padrão inteiro — inclusive um :Cliente novo com o mesmo id — e bate na
+// constraint de unicidade. Reusar a variável é o que faz o MERGE tocar só a
+// aresta.
+WITH origem, vizinho, max(peso) AS risco, collect(via) AS caminhos,
      collect(DISTINCT canal) AS canais
-MERGE (o:Cliente {id:$origem})-[x:EXPOSTO_A]->(vizinho)
+MERGE (origem)-[x:EXPOSTO_A]->(vizinho)
   SET x.peso = risco, x.caminho = caminhos, x.canais = canais,
       x.calculado_em = datetime()
 RETURN vizinho.id AS cliente, vizinho.nome AS nome, vizinho.situacao AS situacao,
