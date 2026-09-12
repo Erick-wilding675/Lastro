@@ -81,8 +81,10 @@ MERGE (e:EstrategiaRecuperacao {id:'EST-AMIG'}) SET e.nome='Cobrança amigável'
 MERGE (e:EstrategiaRecuperacao {id:'EST-PARC'}) SET e.nome='Acordo parcelado',
   e.custo_medio=900.0, e.prazo_medio_dias=90, e.taxa_sucesso_historica=0.55,
   e.preserva_relacao=true, e.estagios_elegiveis=['nenhum','notificado','protestado'];
-MERGE (e:EstrategiaRecuperacao {id:'EST-CONVGAR'}) SET e.nome='Conversão de garantia para alienação fiduciária',
-  e.custo_medio=3500.0, e.prazo_medio_dias=30, e.taxa_sucesso_historica=0.80,
+// Reforço de garantia: o sistema sinaliza fragilidade, mas QUAL instrumento
+// adotar é política de crédito e jurídico da empresa, não recomendação nossa.
+MERGE (e:EstrategiaRecuperacao {id:'EST-REFGAR'}) SET e.nome='Reforço de garantia (conforme política de crédito)',
+  e.custo_medio=3500.0, e.prazo_medio_dias=30, e.taxa_sucesso_historica=0.58,
   e.preserva_relacao=true, e.estagios_elegiveis=['nenhum','notificado'];
 MERGE (e:EstrategiaRecuperacao {id:'EST-PROT'}) SET e.nome='Protesto',
   e.custo_medio=600.0, e.prazo_medio_dias=15, e.taxa_sucesso_historica=0.35,
@@ -264,6 +266,14 @@ MATCH (e:Evento {id:'EVT003'}), (c:Cliente {id:'CLI008'}) MERGE (e)-[:SOBRE]->(c
 MATCH (e:Evento {id:'EVT004'}), (c:Cliente {id:'CLI004'}) MERGE (e)-[:SOBRE]->(c);
 MATCH (e:Evento {id:'EVT005'}), (c:Cliente {id:'CLI003'}) MERGE (e)-[:SOBRE]->(c);
 MATCH (e:Evento {id:'EVT006'}), (c:Cliente {id:'CLI001'}) MERGE (e)-[:SOBRE]->(c);
+
+// EVT007 confirma o choque regional no Sudoeste Goiano. É ele que faz o canal
+// sistêmico entrar com peso cheio (0,75) em vez de reduzido (0,30) — sem evento
+// regional, vizinhança de região e cultura não acende a carteira.
+MERGE (e:Evento {id:'EVT007'}) SET e.tipo='quebra_safra', e.data=date('2026-04-10'),
+  e.fonte='Conab/INMET', e.severidade=0.6,
+  e.descricao='Perda estimada de 18% na soja do Sudoeste Goiano por estiagem';
+MATCH (e:Evento {id:'EVT007'}), (c:Cliente {id:'CLI004'}) MERGE (e)-[:SOBRE]->(c);
 
 // --- Exposição total materializada -----------------------------------
 

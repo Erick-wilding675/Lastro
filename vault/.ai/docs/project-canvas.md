@@ -13,8 +13,9 @@ conteúdos preenchem os campos dele.
 
 Quando um cliente da Krilltech pede Recuperação Judicial, a empresa fica
 legalmente impedida de executar garantia ou protestar por 180 dias. O Lastro
-existe para que ela saiba antes: representa a carteira como uma rede, propaga o
-risco pelos vínculos entre clientes e mostra quem vai cair junto — a tempo de agir.
+existe para que ela saiba antes: representa a carteira como uma rede, mede a
+**exposição compartilhada** entre clientes e mostra **por qual vínculo** ela
+chega — a tempo de decidir.
 
 ---
 
@@ -54,7 +55,7 @@ não é cobrar melhor. É **enxergar antes**.
 |---|---|
 | Área de crédito e financeiro da Krilltech (usuário direto) | Para de descobrir risco tarde; decide limite e condição com base na rede, não só na ficha |
 | Comitê de crédito e diretoria | Exposição consolidada, previsibilidade de caixa, decisão auditável |
-| Time comercial | Deixa de perder cliente bom por cobrança cega; ganha argumento para renegociar no tempo certo |
+| Time comercial | Informação para sustentar a relação com o cliente bom no momento em que o setor aperta, e para renegociar no tempo certo da safra |
 | Produtor rural cliente | Tratado pela realidade da safra, com renegociação antes do colapso em vez de execução depois |
 | Cadeia (revendas, distribuidores, cooperativas) | Mesma infraestrutura aplicável — o agro inteiro compartilha o problema |
 
@@ -70,19 +71,24 @@ Cinco etapas, quatro agentes, um grafo:
    **com fonte e data**.
 2. **Grafo** — cliente, recebível, sócio, avalista, grupo econômico, imóvel,
    região, cultura, safra e evento viram nós e arestas em Neo4j.
-3. **Motor de Contágio** — determinístico, em Cypher. Propaga risco multi-hop com
-   peso por tipo de vínculo (grupo econômico 0,90; avalista comum 0,85; sócio em
-   comum 0,80; mesma revenda 0,50; mesma região e cultura 0,45) e **guarda o
-   caminho percorrido**.
+3. **Motor de Exposição** — determinístico, em Cypher, com dois canais que não se
+   confundem. O **estrutural**, em que o risco de um atinge o outro por vínculo
+   jurídico ou patrimonial: mesmo grupo econômico (0,90), avalista em comum
+   (0,85), sócio em comum (0,70). E o **sistêmico**, em que ninguém contamina
+   ninguém e todos sofrem a mesma causa: mesma região e cultura (0,75), mesma
+   revenda (0,65), mesma cultura (0,40). O canal sistêmico só atinge peso cheio
+   **quando existe evento regional confirmando o choque** — quebra de safra na
+   Conab/INMET, alerta ZARC, queda de cotação. Sem evento, entra reduzido. Em
+   todos os casos, **o caminho percorrido fica gravado**: é ele a explicação.
 4. **Motor de Decisão & Scoring** — calcula score 0–1000 e rating A–D, decomposto
    em cinco componentes.
 5. **Recomendação & Relatório** — *Agente de Risco Agro & Climático* e *Agente
    Sintetizador* produzem a estratégia por devedor, a fila priorizada pela
    capacidade real do time e o Relatório Padronizado de Risco em linguagem natural.
 
-Sobre tudo isso roda o **GIRO** (governança, interpretabilidade, rastreabilidade,
-observabilidade): todo dado carrega fonte e confiança, toda decisão é rastreável,
-e **nenhuma recomendação vira ação automática** — quem decide é o comitê de crédito.
+Toda decisão fica com **trilha de auditoria**: cada dado carrega fonte e data,
+cada nota carrega sua decomposição, e **nenhuma recomendação vira ação
+automática** — quem decide limite, condição e cobrança é o comitê de crédito.
 
 ## 4. Score & Classificação de Rating
 
@@ -93,8 +99,8 @@ peso uniforme — hipótese declarada e auditável, não calibração disfarçad
 |---|---|
 | Comportamento de pagamento | Atraso máximo, situação atual, histórico |
 | Eventos jurídicos e fiscais | RJ, protesto, execução fiscal, alteração societária (janela de 180 dias) |
-| Cobertura de garantia | Garantia sobre exposição, ponderada pelo tipo |
-| **Contágio herdado da rede** | Risco que chega pelos vínculos — **o componente que nenhum bureau tem** |
+| Cobertura de garantia | Garantia sobre saldo devedor, com *haircut* por tipo: alienação fiduciária 1,00; aval 0,70; CPR 0,60; penhor de safra 0,50 |
+| **Exposição herdada da rede** | Risco que chega pelos vínculos estruturais e sistêmicos — **o componente que nenhum bureau tem** |
 | Risco agro e ambiental | Quebra de safra na região, embargo no imóvel |
 
 | Rating | Faixa | Leitura |
@@ -114,10 +120,10 @@ o vínculo que a produziu.
 | RJ distribuída | DataJud / DJE | 1,00 | Habilitar crédito; stay period ativo, execução bloqueada |
 | Protesto de título | Cartório / DJE | 0,70 | Suspender limite, abrir renegociação |
 | Execução fiscal / dívida ativa | PGFN | 0,60 | Revisar limite e exigir garantia |
-| **Contágio forte (≥ 0,80)** | **Grafo (QSA, aval, grupo)** | **0,80+** | **Revisão preventiva antes do vencimento** |
+| **Exposição estrutural alta (≥ 0,80)** | **Grafo (aval, grupo econômico)** | **0,80+** | **Revisão preventiva antes do vencimento** |
 | Embargo ambiental no imóvel | IBAMA / SICAR | 0,55 | Reavaliar garantia: área embargada não produz |
 | Quebra de safra na região | Conab / INMET / ZARC | 0,50 | Antecipar renegociação para a safra seguinte |
-| Garantia frágil (penhor ou sem garantia) | Contrato | 0,45 | **Converter para alienação fiduciária** |
+| Cobertura de garantia frágil após *haircut* | Contrato | 0,45 | Sinalizar para revisão de garantia conforme a política de crédito da empresa |
 | Alteração societária recente | Receita Federal (QSA) | 0,40 | Reavaliar aval e cadeia de responsabilidade |
 
 ## 6. Recomendação de Decisão Operacional
@@ -137,13 +143,17 @@ cobrança amigável, protesto, execução judicial, securitização ou habilita�
 RJ. O estágio jurídico funciona como filtro duro: não se propõe cobrança amigável
 a quem já está habilitado em RJ.
 
-**A ação preventiva de maior valor:** converter a garantia para **alienação
-fiduciária** nos clientes em deterioração, antes do pedido de RJ. Alienação
-fiduciária é crédito extraconcursal e sobrevive à Recuperação Judicial; penhor,
-não. É a diferença entre receber e entrar na fila.
+**Sobre garantias:** o sistema não prescreve instrumento jurídico. Ele mostra,
+com número, o quanto da exposição está coberta por garantias que perdem valor
+justamente no cenário de Recuperação Judicial, e deixa a decisão de política de
+crédito com quem é dono dela — a área financeira e o jurídico da Krilltech.
 
-E a fila de trabalho respeita a capacidade real do time de cobrança: ação
-recomendada que ninguém consegue executar é ação inexistente.
+**Sobre o tempo:** mais importante do que qual ação é *quando*. O sistema aponta a
+janela — antes do vencimento, dentro da safra, antes do pedido de RJ — porque
+depois do deferimento o stay period fecha as opções por 180 dias.
+
+E a fila de trabalho respeita a capacidade real do time: ação recomendada que
+ninguém consegue executar é ação inexistente.
 
 ## 7. Monitoramento Contínuo (Early Warning System)
 
@@ -155,6 +165,8 @@ recomendada que ninguém consegue executar é ação inexistente.
   porque divide avalista com o produtor que pediu RJ ontem"*.
 - Vigia a **inadimplência técnica antes da financeira**: quebra de covenant,
   alteração societária e embargo aparecem antes do atraso de pagamento.
+- Cada alerta entra na **trilha de auditoria**: quem disparou, com qual dado, em
+  que data, e o que foi decidido a partir dele.
 - **Memória de recuperação:** cada ação executada e seu resultado realimentam a
   taxa de sucesso por estratégia. O sistema fica mais preciso a cada safra.
 
@@ -192,7 +204,7 @@ acesso a base real da Krilltech; nenhum dado pessoal real no repositório — o 
 | A base atual não tem os vínculos mapeados | O enriquecimento por QSA é etapa do pipeline, não pré-requisito |
 | Pesos de contágio soarem arbitrários | Declarados como hipótese auditável, com o caminho sempre visível e ajustáveis por domínio |
 | Parecer "mais um score de crédito" | O componente de rede é justamente o que bureau nenhum entrega |
-| Falso positivo queimar relação comercial | Recomendação nunca vira ação automática; o comitê decide, e a estratégia que preserva relação tem bônus no ranqueamento |
+| Falso positivo queimar relação comercial | O canal sistêmico só dispara com evento regional confirmado; recomendação nunca vira ação automática; e a estratégia que preserva relação tem bônus no ranqueamento |
 | Dado público desatualizado | Cada evento carrega fonte e data; o sistema mostra a idade do dado em vez de fingir atualidade |
 
 ## 10. Próximos Passos

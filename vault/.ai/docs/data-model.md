@@ -1,164 +1,159 @@
 # Data Model
 
-<!--
-  As entidades que o sistema armazena, seus campos/tipos, e como se
-  relacionam. Segundo documento da fase de modelagem (Step 3b). Depende do
-  SRS e dos use cases. Aqui é onde o Talent Model e o Project Genome (da
-  Tese) viram schema.
--->
+**Status:** Reescrito em 11/09 para o domínio do case KRILLTECH (risco relacional e recuperação de recebíveis). Substitui o schema de formação de squads. **Este é o documento que o time de dados/backend implementa primeiro.**
 
-**Status:** Aprovado por Erick em 10/09 (proposta de schema + as 4 decisões de modelagem abaixo, aprovadas em bloco). **Adendo do Step 4 (11/09):** relação `RECOMENDADO_PARA` adicionada — ver seção de Relações e Regras de Dados.
-
-**Projeto:** Talent Graph
-**Versão:** 0.1 — Rascunho
-**Data:** 2026-09-10
-**Paradigma:** Grafo — Neo4j (AuraDB, tier gratuito). Ver [ARD.md](ARD.md), ARD-01.
-
-> **Fonte:** `TeseTalent_Graph_IBM.pdf`, seções II (Talent Model) e III (Project Model) — as cinco dimensões de cada modelo já estão definidas lá; este arquivo vira o schema Neo4j (nós, relações, propriedades) para o MVP.
+**Projeto:** Rizoma
+**Versão:** 1.0 — Pivô de domínio
+**Data:** 2026-09-11
+**Paradigma:** Grafo — Neo4j (AuraDB, tier gratuito). Ver [ARD.md](ARD.md), ARD-01 (decisão preservada no pivô).
 
 ---
 
-## Decisões de modelagem (Step 3b, aprovadas em bloco por Erick em 10/09)
+## Princípio
 
-Estas quatro decisões resolvem lacunas que a Tese deixa deliberadamente conceituais (ela não assume um banco específico) e que só faziam sentido depois do ARD-01 (Neo4j):
-
-1. **Fonte/confiança nas propriedades escalares do `Projeto`:** **não** replicadas campo a campo. Justificativa: o Step 2 já decidiu que, no build do MVP, a criação de projeto acontece **só por elicitação direta** (extração documental fica conceitual, só para o pitch — ver SRS.md, FR-08 correlato e a resposta de Erick ao Step 2, item 3). Como existe apenas uma origem possível no MVP em execução, todo `Projeto` carrega uma única propriedade `fonte: "elicitação_direta"` no nó inteiro — rastreabilidade real (fonte + confiança por campo) é reservada para onde a Tese realmente exige comparação de força de evidência: as relações `TEM_COMPETENCIA` e `REQUER_COMPETENCIA`, que alimentam o Matching Model e cujo score depende exatamente dessa força (Tese, Nível 1, item 1).
-2. **Isolamento da nota de avaliação:** só na camada de aplicação/orquestração, não no banco. O MVP não implementa autenticação multi-papel (NFR-04, Fora de Escopo no SRS — Alta Gestão e Talento são só narrativa de pitch, ver use-cases.md UC-06/07). Na prática, existe um único papel autenticado rodando o sistema (Gestor de Projetos), então a "restrição de acesso" da Tese (item 11) vira uma regra de **apresentação**: a UI e os agentes de explicação nunca renderizam a relação `AVALIADO_EM` fora do fluxo de decisão de formação de squad — nunca é exposta como um "registro de fato" comum. Fica registrado aqui como simplificação deliberada de escopo, não como a governança final (ver [harness.md](../harness.md), Governança — "a definir: modelo de autenticação/autorização do MVP").
-3. **Requisitos e Escopo / Tecnologia e Decisões de Arquitetura são descritivas, não entram na matemática do Matching:** confirmado. Nem o Resumo Técnico nem a Tese listam essas duas dimensões entre os componentes de Nível 1 (Competências, Papéis, Interesse, Experiência Contextual, Disponibilidade) ou Nível 2 (Cobertura, Complementaridade, Distribuição de Experiência, Disponibilidade Agregada, Colaboração). Elas existem no grafo só como propriedades do nó `Projeto`, para popular a UI e a narrativa do pitch — não são lidas por nenhum agente de matching.
-4. **Squad é um conceito derivado, não um nó próprio.** Não existe otimização de portfólio no MVP (Nível 3 fora do escopo) e cada `Projeto` tem exatamente um squad ativo por vez — logo "o squad do projeto X" é só o conjunto de relações `PARTICIPOU_DE` ativas apontando para aquele `Projeto`, sem necessidade de um nó `Squad` redundante para manter sincronizado. A animação de "matching em movimento" (UC-02) é um problema de **apresentação/orquestração** — o grafo armazena o resultado final (relações + os scores decompostos que a explicação usa), o frontend anima a revelação dimensão por dimensão a partir desses dados já calculados.
+O schema existe para tornar **consultável o que a planilha esconde**: não "quanto o cliente X deve", mas "quem mais cai junto com o cliente X, e por quê". Toda aresta aqui é um vetor de contágio potencial ou uma dimensão de decisão de recuperação — nada é modelado por completude.
 
 ---
 
-## Entidades (Nós)
+## Nós
 
-### Pessoa (Talent Model)
-
-<!-- Cinco dimensões da Tese: Competências, Preferências e Interesses, Papéis, Disponibilidade, Histórico de Colaboração. -->
-
-| Campo | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| id | uuid | PK | Identificador único (dataset seed). |
-| nome | string | obrigatório | Nome do talento fictício. |
-| disponibilidade_atual | enum: `livre` / `parcial` / `indisponível` | obrigatório | Filtro de elegibilidade (Tese, Nível 1 — disponibilidade funciona como filtro, não como comparação). |
-| tipo_disponibilidade | enum: `execução` / `mista` | default `execução` | Distingue quem acumula coordenação além de projetos (Tese, Talent Model item 10 — "disponibilidade mista"). |
-| projetos_simultaneos | int | ≥ 0 | Quantidade de projetos ativos no momento — suporta o filtro de disponibilidade. |
-
-**Relacionamentos:** `TEM_COMPETENCIA`, `PARTICIPOU_DE`, `PREFERE_PAPEL`, `TEM_INTERESSE`, `COLABOROU_COM`, `AVALIADO_EM` — ver seção Relações.
-
-### Projeto (Project Model / Project Genome)
-
-<!-- Cinco dimensões da Tese: Problema e Contexto, Requisitos e Escopo, Competências e Papéis Necessários, Tecnologia e Decisões de Arquitetura, Complexidade e Estágio. -->
-
-| Campo | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| id | uuid | PK | Identificador único do projeto. |
-| fonte | constante `"elicitação_direta"` | obrigatório | Ver Decisão de modelagem #1 — única origem possível no MVP em execução. |
-| problema | string | obrigatório | O que o projeto pretende resolver (dimensão Problema e Contexto). |
-| publico_alvo | string | obrigatório | Para quem o problema é relevante. |
-| dominio | string | obrigatório | Domínio/mercado do projeto — mesma taxonomia usada em `TEM_INTERESSE`. |
-| evidencia_problema | string | opcional | Pesquisa, demanda observada ou hipótese não validada. |
-| funcionalidades_essenciais | list\<string\> | obrigatório | Dimensão Requisitos e Escopo — descritiva (Decisão #3). |
-| funcionalidades_desejaveis | list\<string\> | opcional | idem |
-| fora_de_escopo | list\<string\> | opcional | idem |
-| criterios_sucesso | list\<string\> | opcional | idem |
-| stack_tecnologica | string | opcional | Dimensão Tecnologia e Decisões de Arquitetura — descritiva (Decisão #3). |
-| decisoes_arquitetura | string | opcional | idem |
-| complexidade_tecnica | enum/escala | obrigatório | Eixo 1 de 3 (Tese, item 9). |
-| complexidade_produto | enum/escala | obrigatório | Eixo 2 de 3. |
-| complexidade_mercado | enum/escala | obrigatório | Eixo 3 de 3 — "o quanto o contexto competitivo/regulatório impõe dificuldade adicional". |
-| estagio | enum: `ideação` / `validação de hipótese` / `construção de MVP` / `validação com usuários reais` / `tração inicial` / `escala` | obrigatório | Tese, item 9 — muda ao longo do tempo. |
-
-**Relacionamentos:** `REQUER_COMPETENCIA`, `REQUER_PAPEL` — ver seção Relações. **Não** registra quem já trabalhou no projeto (isso vive só em `PARTICIPOU_DE`/`COLABOROU_COM` do lado de `Pessoa` — Hard Rule 3 do [ai.md](../ai.md), evita a duplicação que a própria Tese identifica como erro).
-
-### Competencia (taxonomia compartilhada)
+### `Cliente`
 
 | Campo | Tipo | Descrição |
 |---|---|---|
 | id | uuid | PK |
-| nome | string | Ex.: "Python", "Arquitetura de Software", "Educação" (técnica / metodológica / domínio — Tese, Talent Model item 4). |
-| categoria | enum: `técnica` / `metodológica` / `domínio` | Mesma taxonomia usada por Pessoa e Projeto. |
+| nome | string | Razão social ou nome do produtor |
+| tipo | enum: `produtor_pf` / `produtor_pj` / `revenda` / `distribuidor` | Topologia do canal |
+| documento | string | CPF/CNPJ (mascarado no seed) |
+| uf, municipio | string | Localização — liga em `Regiao` |
+| porte | enum: `pequeno` / `medio` / `grande` | Calibra expectativa de exposição |
+| situacao | enum: `adimplente` / `atraso` / `inadimplente` / `recuperacao_judicial` / `renegociado` | Estado de crédito atual |
+| dias_atraso_max | int | Maior atraso entre os recebíveis abertos |
+| exposicao_total | float | R$ em aberto — **derivado**, materializado para performance de UI |
+| cliente_desde | date | Tempo de relacionamento — entra na dimensão de valor comercial |
 
-### Papel (taxonomia compartilhada)
+### `Recebivel`
 
 | Campo | Tipo | Descrição |
 |---|---|---|
 | id | uuid | PK |
-| nome | string | Ex.: "Engenheiro de Dados", "Product Owner". |
+| valor | float | Valor de face |
+| valor_aberto | float | Saldo devedor atual |
+| data_emissao, data_vencimento | date | Base do aging |
+| dias_atraso | int | Derivado |
+| safra | string | Ex.: "2025/26" — casa a cobrança com o ciclo de caixa do produtor |
+| status | enum: `aberto` / `vencido` / `renegociado` / `recuperado` / `perdido` / `em_acordo` | Ciclo de vida |
+| garantia_tipo | enum: `nenhuma` / `aval` / `penhor_safra` / `cpr` / `hipoteca` / `seguro` | Determina estratégias elegíveis |
+| garantia_valor | float | Cobertura |
+| estagio_juridico | enum: `nenhum` / `notificado` / `protestado` / `judicial` / `habilitado_rj` | Filtro duro de estratégia |
 
-### Dominio (taxonomia compartilhada — interesses/preferências)
+### `Avalista`, `GrupoEconomico`, `Regiao`, `Cultura`, `Safra`
+
+| Nó | Campos principais | Papel no contágio |
+|---|---|---|
+| `Avalista` | id, nome, documento, tipo (`pf`/`pj`), exposicao_agregada | **Vetor forte** — um avalista comum a vários devedores concentra risco silenciosamente |
+| `GrupoEconomico` | id, nome | **Vetor forte** — quebra de um membro contamina o grupo |
+| `Regiao` | id, nome, uf, microrregiao | **Vetor médio** — clima, logística e preço são regionais |
+| `Cultura` | id, nome, ciclo_dias | **Vetor médio** — margem de soja/milho move a carteira inteira junto |
+| `Safra` | id, ano_agricola, cultura_ref | Janela de caixa: define **quando** cobrar faz sentido |
+
+### `EstrategiaRecuperacao`
 
 | Campo | Tipo | Descrição |
 |---|---|---|
 | id | uuid | PK |
-| nome | string | Mesma taxonomia usada em `Projeto.dominio` e em `TEM_INTERESSE`. |
+| nome | enum: `renegociacao` / `barter` / `cobranca_amigavel` / `acordo_parcelado` / `protesto` / `judicial` / `securitizacao` / `habilitacao_rj` | Catálogo de ações |
+| custo_medio | float | Custo operacional/jurídico por caso |
+| prazo_medio_dias | int | Tempo típico até o caixa voltar |
+| taxa_sucesso_historica | float | Alimentada pela memória de recuperação |
+| preserva_relacao | bool | Barter e renegociação preservam; judicial e protesto queimam |
+| estagios_elegiveis | list\<enum\> | Quais `estagio_juridico` aceitam esta estratégia |
 
 ---
 
 ## Relações
 
-| Relação | De → Para | Propriedades | Dimensão da Tese |
+| Relação | De → Para | Propriedades | Papel |
 |---|---|---|---|
-| `TEM_COMPETENCIA` | Pessoa → Competencia | `fonte` (projeto realizado em conjunto / artefato público / perfil autodeclarado / conversa direta / inferência de IA), `confianca` | Competências (item 4) + Evidência e Fonte (item 5) |
-| `REQUER_COMPETENCIA` | Projeto → Competencia | `indispensavel` (bool), `fonte`, `confianca` | Competências e Papéis Necessários (item 7) |
-| `PARTICIPOU_DE` | Pessoa → Projeto | `papel`, `periodo_inicio`, `periodo_fim`, `resultado` | Dupla função: evidência de competência **e** histórico de colaboração no mesmo registro (Tese, item 6 — "não é mais necessário duplicar") |
-| `PREFERE_PAPEL` | Pessoa → Papel | `origem: "preferência declarada"` | Papéis — papel desejado, nunca exercido (peso menor que papel comprovado) |
-| `REQUER_PAPEL` | Projeto → Papel | `indispensavel_desde_inicio` (bool) | Competências e Papéis Necessários (item 7) |
-| `TEM_INTERESSE` | Pessoa → Dominio | — | Preferências e Interesses |
-| `COLABOROU_COM` | Pessoa → Pessoa | `projeto_id`, `papeis`, `periodo`, `resultado` | Histórico de Colaboração — **registro de fato**, visível a qualquer pessoa com acesso ao Talent Model (Tese, item 11.a) |
-| `AVALIADO_EM` | Pessoa → Pessoa | `projeto_id`, `nota`, `autor_id` | Histórico de Colaboração — **nota de avaliação**, acesso restrito por regra de apresentação (Decisão de modelagem #2; Tese, item 11.b) |
-| `RECOMENDADO_PARA` | Pessoa → Projeto | `score_decomposto` (por dimensão de Nível 1/2) | **Adendo Step 4 (ARD-05):** materializa o resultado do Matching Model — não é recalculado a cada consulta. Base técnica da Memória Organizacional (UC-05) e da explicação que a UI consome sem expor números crus (NFR-02). |
+| `DEVE` | Cliente → Recebivel | — | Exposição direta |
+| `GARANTIDO_POR` | Recebivel → Avalista | `tipo_garantia` | **Contágio forte**: avalista compartilhado |
+| `PERTENCE_A` | Cliente → GrupoEconomico | — | **Contágio forte** |
+| `SOCIO_EM_COMUM` | Cliente → Cliente | `qtd_socios_comuns` | **Contágio forte**: vínculo societário oculto |
+| `COMPRA_VIA` | Cliente → Cliente (revenda) | `volume_safra` | Contágio médio: quebra de canal |
+| `OPERA_EM` | Cliente → Regiao | `hectares` | Contágio médio: clima/logística |
+| `PLANTA` | Cliente → Cultura | `hectares`, `safra_ref` | Contágio médio: preço da commodity |
+| `REFERENTE_A` | Recebivel → Safra | — | Janela de caixa |
+| `EXPOSTO_A` | Cliente → Cliente | `peso`, `caminho`, `calculado_em` | **Derivada** — aresta de contágio calculada pelo motor. Guarda o caminho que a produziu, para explicação |
+| `RECOMENDADA` | Cliente → EstrategiaRecuperacao | `score_decomposto`, `valor_recuperavel_estimado`, `prazo_estimado`, `calculado_em` | Herdeira direta de `RECOMENDADO_PARA` (ARD-05): materializa a explicação, não recalcula |
+| `EXECUTADA` | Cliente → EstrategiaRecuperacao | `data`, `resultado`, `valor_recuperado`, `prazo_real` | **Memória de recuperação** — é isto que faz o sistema aprender |
 
 ---
 
-## Diagrama Entidade-Relacionamento
+## Diagrama
 
 ```
-                 TEM_COMPETENCIA {fonte, confiança}
-   ┌─────────┐ ─────────────────────────────────▶ ┌──────────────┐
-   │ PESSOA  │                                     │ COMPETENCIA  │
-   │ id  PK  │ ◀───────────────────────────────── │ id  PK        │
-   └─────────┘   REQUER_COMPETENCIA {indispensável, fonte, confiança}
-     │  │  │                                       ┌──────────────┐
-     │  │  └── PREFERE_PAPEL ──────────────────▶  │ PAPEL        │
-     │  │                                          │ id  PK        │
-     │  │      REQUER_PAPEL {indispensável_inicio} └──────────────┘
-     │  │                        (Projeto ──────────────▲)
-     │  │
-     │  └── TEM_INTERESSE ───────────────────────▶ ┌──────────────┐
-     │                                              │ DOMINIO      │
-     │      PARTICIPOU_DE {papel, período, resultado}└──────────────┘
-     └──────────────────────────────────────────▶ ┌──────────────┐
-                                                    │ PROJETO      │
-     COLABOROU_COM {projeto_id, papéis, período,   │ id  PK        │
-     resultado}  (Pessoa ──▶ Pessoa, registro de   └──────────────┘
-     fato — visível a todos)
-
-     AVALIADO_EM {projeto_id, nota, autor_id}
-     (Pessoa ──▶ Pessoa, nota de avaliação — acesso restrito,
-     nunca renderizada fora do fluxo de decisão de squad)
+            GARANTIDO_POR                    PERTENCE_A
+  (Avalista)◀──────────(Recebivel)      (GrupoEconomico)
+      ▲                     ▲                   ▲
+      │ contágio forte      │ DEVE              │ contágio forte
+      │                     │                   │
+      └──────────────  (CLIENTE)  ──────────────┘
+                         │ │ │ │
+        SOCIO_EM_COMUM ◀─┘ │ │ └─▶ OPERA_EM ─▶ (Regiao)
+        (outro Cliente)    │ └───▶ PLANTA ───▶ (Cultura)
+                           │
+                           ├─▶ EXPOSTO_A {peso, caminho} ─▶ (outro Cliente)   [derivada]
+                           ├─▶ RECOMENDADA {score_decomposto} ─▶ (Estrategia)  [materializada]
+                           └─▶ EXECUTADA {resultado, valor_recuperado} ─▶ (Estrategia)  [memória]
 ```
 
 ---
 
-## Enumerações & Tipos Compartilhados
+## O motor de contágio
 
-| Tipo | Valores / forma | Usado por |
+A aresta `EXPOSTO_A` é calculada, não informada. Quando um `Cliente` muda para `recuperacao_judicial` ou `inadimplente`, o motor percorre o grafo a partir dele e atribui peso decrescente por tipo e distância do vínculo:
+
+**Canal estrutural** — o risco de um contamina o outro por vínculo jurídico ou
+patrimonial:
+
+| Caminho | Peso |
+|---|---|
+| Mesmo `GrupoEconomico` | 0,90 |
+| Mesmo `Avalista` | 0,85 |
+| Mesmo `Socio` (via `TEM_SOCIO`, fonte QSA) | 0,70 |
+
+**Canal sistêmico** — ninguém contamina ninguém, todos sofrem a mesma causa
+(seca, praga, queda de cotação). Só entra com peso cheio **se houver evento
+regional confirmando o choque** (`quebra_safra`, `alerta_zarc`, `queda_preco`
+nos últimos 365 dias); sem evento, entra reduzido:
+
+| Caminho | Com choque confirmado | Sem evento regional |
 |---|---|---|
-| Competência (taxonomia compartilhada) | técnica / metodológica / domínio | `Pessoa` (via `TEM_COMPETENCIA`), `Projeto` (via `REQUER_COMPETENCIA`) |
-| Papel (taxonomia compartilhada) | livre, definida pelo seed (ex.: Engenheiro de Dados, PO) | `Pessoa` (via `PARTICIPOU_DE`/`PREFERE_PAPEL`), `Projeto` (via `REQUER_PAPEL`) |
-| Domínio (taxonomia compartilhada) | livre, definida pelo seed (ex.: educação, saúde, jurídico) | `Projeto.dominio`, `Pessoa` (via `TEM_INTERESSE`) |
-| Fonte | projeto realizado em conjunto / artefato público / perfil autodeclarado / conversa ou observação direta / inferência de IA | `TEM_COMPETENCIA`, `REQUER_COMPETENCIA` |
-| Estágio do projeto | ideação / validação de hipótese / construção de MVP / validação com usuários reais / tração inicial / escala | `Projeto.estagio` |
+| Mesma `Regiao` + mesma `Cultura` | 0,75 | 0,30 |
+| Mesma revenda (`COMPRA_VIA`) | 0,65 | 0,65 |
+| Mesma `Cultura` apenas | 0,40 | 0,40 |
+
+Essa condicional é o que impede a carteira inteira de acender quando um cliente
+quebra por motivo próprio. A microrregião só fica vermelha quando existe uma
+causa comum documentada, com fonte.
+
+Pesos multiplicam a cada hop adicional (decaimento), e o caminho percorrido é gravado em `EXPOSTO_A.caminho` — é isso que permite dizer ao gestor **"este cliente acendeu porque compartilha avalista com o produtor que entrou em RJ ontem"**, em vez de mostrar um número sem origem. Pesos são hipótese inicial, auditável e ajustável (mesmo princípio da Tese: peso é hipótese, não verdade).
+
+> **Por que isso exige grafo:** a consulta é multi-hop com pesos por tipo de aresta e reconstrução de caminho. Em SQL vira junção recursiva ilegível; em Cypher é uma query. É a justificativa técnica do Neo4j no pitch (Viabilidade Técnica, 25%).
 
 ---
 
 ## Regras de Dados
 
-- Toda relação `TEM_COMPETENCIA`/`REQUER_COMPETENCIA` carrega **fonte** e **confiança** — nunca uma competência isolada sem proveniência (ver [../harness.md](../harness.md), Rastreabilidade).
-- `COLABOROU_COM` (registro de fato) é sempre uma relação separada de `AVALIADO_EM` (nota de avaliação) — nunca a mesma relação com um campo opcional, porque isso violaria a regra de visibilidade diferenciada (Tese, item 11).
-- `Projeto` nunca registra `PARTICIPOU_DE` no sentido inverso nem duplica quem trabalhou nele — essa informação vive só do lado de `Pessoa` (Hard Rule 3, [ai.md](../ai.md)).
-- Toda sugestão de IA que ainda não foi confirmada (ex.: uma competência inferida) carrega `confianca` compatível com essa origem — nunca é indistinguível de um dado confirmado por evidência forte (Tese, item 13 do Talent Model).
-- Dataset seed: artificial e enriquecido o suficiente para produzir squads quase perfeitos na demo (ver system-description.md, Objetivos & Sucesso) — isso é responsabilidade de geração de dados, não do schema, mas o schema acima precisa suportar toda a variação de `fonte`/`confianca` que o seed for gerar.
+- Toda informação carrega **fonte e confiança** quando vier de inferência de IA ou de documento extraído — nunca vira fato consolidado silenciosamente. É o que sustenta a trilha de auditoria da decisão de crédito.
+- **Cobertura de garantia usa haircut por tipo** antes de qualquer cálculo:
+  alienação fiduciária 1,00; aval 0,70; CPR 0,60; penhor de safra 0,50; nenhuma
+  0,00. Penhor de safra evapora com a seca e entra no concurso da RJ; alienação
+  fiduciária é extraconcursal e sobrevive. O schema guarda `garantia_tipo` e
+  `garantia_valor` justamente para permitir essa ponderação.
+- `EXPOSTO_A` e `RECOMENDADA` são **derivadas e datadas** (`calculado_em`): nunca são tratadas como fato do mundo, e sim como o que o sistema calculou naquele momento.
+- `EXECUTADA` é imutável — é o registro histórico que alimenta `taxa_sucesso_historica`. Corrigir um resultado cria um novo registro, não sobrescreve.
+- Dados pessoais de produtores são mascarados no dataset seed; nenhum documento real entra no repositório.
 
 ---
 
@@ -166,7 +161,7 @@ Estas quatro decisões resolvem lacunas que a Tese deixa deliberadamente conceit
 
 | # | Questão | Owner | Status |
 |---|---|---|---|
-| 1 | Volume e distribuição exata do dataset seed (quantas Pessoas, quantos Projetos simulados, quantas Competências/Papéis na taxonomia) | Erick + equipe de dados | Open — Step 4 ou início do build |
-| 2 | Granularidade da taxonomia de Competência/Papel/Domínio — nível de detalhe sem criar falsa precisão | Erick + equipe de agentes | Open — Step 4 |
-| 3 | ~~Formato exato de persistência da explicação decomposta?~~ Resolvido no Step 4 (ARD-05) — materializada como `RECOMENDADO_PARA {score_decomposto}`. | Erick + Claude | Resolvido 11/09 |
-| 4 | Onde a regra de apresentação da Decisão #2 (nunca renderizar `AVALIADO_EM` fora do fluxo de decisão) é efetivamente implementada — camada de API, camada de agente, ou ambas? | Erick + equipe fullstack | Open — Step 4 |
+| 1 | Krilltech vende via revenda? Se não, `COMPRA_VIA` sai do schema | Erick / empresa | Open |
+| 2 | Pesos iniciais do contágio — calibrar com quem conhece o agro, ou manter hipótese uniforme documentada | Erick | Open |
+| 3 | Volume do seed: quantos clientes, recebíveis e clusters para a demo ficar convincente sem pesar o AuraDB free | Erick + dados | Open |
+| 4 | `Safra` como nó ou como propriedade — hoje está como nó para permitir janela de caixa por safra; confirmar na implementação | Backend | Open |

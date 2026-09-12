@@ -1,64 +1,128 @@
-# Matching Model
+# Matching Model — Risco e Recuperação
 
-<!--
-  Especificação da lógica de comparação entre Talent Model e Project Genome —
-  os três níveis (individual, squad, portfólio) e os agentes especializados de
-  cada dimensão. Preenchido junto ao Step 3b (Data Model) e ao Step 4
-  (Architecture), depois de aprovados.
--->
+**Status:** Reescrito em 11/09 para o case KRILLTECH. Substitui o matching pessoa↔projeto. **Este é o documento que o time de agentes/orquestração implementa primeiro.**
 
-**Status:** Rascunho completo — corte agente/função, pesos e persistência da explicação decididos por Erick em 11/09 (Step 4).
+**Projeto:** Rizoma
+**Versão:** 1.0 — Pivô de domínio
+**Data:** 2026-09-11
 
-> **Fonte:** `Tese-Talent_Graph_IBM.pdf`, seção IV (Matching Model), e `Resumo-Tecnico-Talent_Graph_IBM.pdf`, seções IV–VIII. Grande parte da lógica já está definida lá; este arquivo estrutura o que for confirmado para o MVP do hackathon.
+---
 
-## Princípio
+## Princípio (preservado do original)
 
-O Matching Model produz **recomendação, não decisão**. Todo score é explicável e decomposto por dimensão — nunca uma caixa-preta. Ver [../harness.md](../harness.md).
+O modelo produz **recomendação, não decisão**. Todo score é decomposto por dimensão e rastreável até o dado que o gerou. Nenhuma ação de cobrança é disparada automaticamente: o comitê de crédito decide. Ver [../harness.md](../harness.md).
 
-## Nível 1 — Adequação Individual
+Num contexto de crédito isso deixa de ser preferência de design e vira requisito: decisão de crédito precisa ser auditável, defensável e reversível.
 
-| Dimensão | Implementação (decidido 11/09) | Peso (MVP) |
-|---|---|---|
-| Competências | **Agente LLM** — Competency Matching Agent (watsonx Orchestrate) | Uniforme |
-| Papéis | **Agente LLM** — Role Matching Agent (watsonx Orchestrate) | Uniforme |
-| Interesse e Preferência | **Agente LLM** — Interest Alignment Agent (watsonx Orchestrate) | Uniforme |
-| Experiência Contextual | **Função determinística** — backend (comparação categórica complexidade/estágio × experiência contextual) | Uniforme |
-| Disponibilidade | **Função determinística** — backend | — (funciona como filtro, não soma ao score) |
+---
 
-## Nível 2 — Adequação de Squad
+## Camada 0 — Motor de Contágio (novo, e é o diferencial)
 
-| Dimensão | Implementação (decidido 11/09) | Peso (MVP) |
-|---|---|---|
-| Cobertura | **Função determinística** — backend (cálculo sobre o grafo) | Uniforme |
-| Complementaridade | **Função determinística** — backend | Uniforme |
-| Distribuição de Experiência | **Função determinística** — backend | Uniforme |
-| Disponibilidade Agregada | **Função determinística** — backend | Uniforme |
-| Colaboração | **Função determinística** — backend (lê `COLABOROU_COM`/`AVALIADO_EM`) | Uniforme |
+Antes de qualquer matching, o grafo responde: **quem está em risco que ainda não apareceu no aging?**
 
-**Racional do corte agente/função (Erick, 11/09):** viram agente LLM só as três dimensões que exigem interpretação semântica de texto livre ou taxonomia difusa (competência declarada vs. evidenciada, papel, interesse). Todas as demais são cálculo determinístico direto sobre o grafo — reduz o risco de escopo de 11 componentes (ver "Risco real de escopo" em [system-description.md](system-description.md)) para 4 agentes LLM de fato (Competency, Role, Interest, mais o Annotation Normalizing Agent de [use-cases.md](use-cases.md)) + funções determinísticas no backend + o Orchestrator. Consistente com a própria Tese: "ferramentas determinísticas executam filtros, cálculos e regras" (Resumo Técnico, seção II.2).
+Entrada: mudança de estado de um `Cliente` (entrou em RJ, estourou 90 dias, protestou).
+Saída: arestas `EXPOSTO_A` com peso e caminho, para cada vizinho alcançado.
 
-**Pesos (decidido 11/09):** uniformes dentro de cada nível para o MVP — simples de calcular, totalmente auditável, e honesto no pitch ("ainda não calibramos com dados reais de uso — cada dimensão pesa igual até termos histórico suficiente para ajustar", ver Tese, Matching Model item 8, "Pesos são Hipóteses").
+Implementação: **função determinística** (query Cypher multi-hop — ver
+[data-model.md](data-model.md)). Não precisa de LLM: é propagação em grafo, não
+interpretação.
 
-**Persistência da explicação (decidido 11/09, ver [ARD.md](ARD.md) ARD-05):** o score decomposto por dimensão de cada recomendação é **materializado** no grafo como a relação `RECOMENDADO_PARA {score_decomposto}` entre `Pessoa` e `Projeto` — não recalculado a cada consulta. Isso é o que permite a Memória Organizacional (UC-05) mostrar squads formados anteriormente sem re-rodar o pipeline.
+O motor tem **dois canais distintos**, e a diferença entre eles é conceitual, não
+cosmética:
 
-## Nível 3 — Otimização de Portfólio
+- **Estrutural** — o risco de um contamina o outro por vínculo jurídico ou
+  patrimonial: grupo econômico (0,90), avalista em comum (0,85), sócio em comum
+  (0,70).
+- **Sistêmico** — ninguém contamina ninguém; todos sofrem a mesma causa: mesma
+  região e cultura (0,75), mesma revenda (0,65), mesma cultura (0,40). O peso
+  cheio de região e cultura **só vale se houver evento regional confirmando o
+  choque** (quebra de safra, alerta ZARC, queda de cotação nos últimos 365 dias);
+  sem evento, cai para 0,30.
 
-Agente especializado: Portfolio Optimization Agent. **Fora do escopo do MVP do hackathon — decidido em 10/09.** Muito trabalho para pouco ganho de pontuação no tempo disponível. Fica documentado aqui como visão futura, igual descrito na Tese/Resumo Técnico, mas não é construído.
+Essa condicional responde à objeção óbvia da banca — *"então a carteira inteira
+acende?"* — com um não verificável: a microrregião só fica vermelha quando existe
+causa comum documentada e com fonte.
 
-## Orchestrator Agent
+O que precisa de LLM é **explicar o cluster em linguagem de negócio** — daí o `Contagion Narrative Agent` abaixo.
 
-Coordena o fluxo completo: entrada → ingestão/atualização do Talent Model e Project Genome → validação de evidência e confiança → filtragem de elegibilidade → matching individual → construção e avaliação de squads → [opcional: otimização de portfólio] → geração de recomendação e explicação → revisão e decisão humana → registro de feedback.
+---
 
-Ver [../harness.md](../harness.md) para a nuance sobre a decisão humana **não** ser um gate síncrono dentro desse fluxo.
+## Nível 1 — Adequação Devedor ↔ Estratégia
 
-## Progressão do MVP
+Para cada devedor, quão adequada é cada `EstrategiaRecuperacao` do catálogo.
 
-Prioridade confirmada pela Tese: **regras e pesos** (comparação direta, determinística, totalmente auditável). Similaridade semântica, análise de grafo e aprendizado a partir do histórico são evoluções posteriores — confirmar no Step 4 se alguma entra no escopo do hackathon.
+| Dimensão | O que compara | Implementação | Peso (MVP) |
+|---|---|---|---|
+| **Capacidade de pagamento** | Histórico de pagamento, porte, safra corrente, cultura e região contra o saldo devedor | Função determinística | Uniforme |
+| **Cobertura de garantia** | Garantia sobre exposição, com **haircut por tipo** (alienação fiduciária 1,00; aval 0,70; CPR 0,60; penhor de safra 0,50; nenhuma 0,00) — nem todo real de garantia vale um real no cenário de RJ | Função determinística | Uniforme |
+| **Valor da relação comercial** | Tempo de casa, volume histórico, potencial de safras futuras — define se vale preservar o cliente | Função determinística | Uniforme |
+| **Contexto qualitativo** | Relato do comercial, situação da lavoura, histórico de negociação, petição de RJ — texto livre | **Agente LLM** — `Strategy Fit Agent` | Uniforme |
+| **Estágio jurídico** | `estagio_juridico` contra `estagios_elegiveis` da estratégia | Função determinística — **filtro de elegibilidade, não soma ao score** | — |
+
+O estágio jurídico funciona como a disponibilidade funcionava no modelo original: filtro duro. Não se propõe cobrança amigável a quem já está habilitado em RJ.
+
+---
+
+## Nível 2 — Coerência da Carteira de Ações
+
+Um plano de recuperação não é a soma das melhores ações individuais.
+
+| Dimensão | O que avalia | Implementação | Peso (MVP) |
+|---|---|---|---|
+| **Cobertura de exposição** | Quanto do R$ total em risco está de fato endereçado por alguma ação | Função determinística | Uniforme |
+| **Capacidade operacional** | Quantos casos o time consegue tocar no período — ação recomendada que ninguém executa é ação inexistente | Função determinística | Uniforme |
+| **Concentração de risco** | Se o esforço está todo num cluster e o resto da carteira está descoberto | Função determinística | Uniforme |
+| **Janela de safra** | Se a cobrança está casada com o momento de caixa do produtor — cobrar na entressafra é queimar relação sem recuperar | Função determinística | Uniforme |
+| **Coerência de contágio** | Se as ações vizinhas dentro de um mesmo cluster se contradizem (executar um e renegociar outro do mesmo grupo) | Função determinística sobre `EXPOSTO_A` | Uniforme |
+
+---
+
+## Nível 3 — Otimização de Portfólio (agora **dentro** do escopo)
+
+> No projeto original este nível foi cortado por "muito trabalho para pouco ganho". No case real ele é o núcleo: o problema declarado da Krilltech é **recuperação lenta de capital**, e isso é exatamente um problema de alocação de capacidade escassa.
+
+**Objetivo:** maximizar capital recuperado por unidade de esforço, dentro das restrições reais (capacidade do time, custo por estratégia, prazo desejado de retorno).
+
+**Implementação no MVP:** heurística gulosa determinística — ordena por `valor_recuperavel_estimado / (custo × prazo)`, respeitando capacidade e concentração. **Não** um solver de otimização: cabe no tempo, é explicável linha a linha e resolve o problema. Solver fica como evolução declarada.
+
+---
+
+## Corte agente LLM vs. função determinística
+
+Mantém a lógica do corte original (interpretação semântica vira agente; cálculo vira função):
+
+**Agentes LLM (watsonx Orchestrate) — 4:**
+
+| Agente | Responsabilidade |
+|---|---|
+| `Strategy Fit Agent` | Lê contexto qualitativo do devedor (relato comercial, histórico de negociação) e pontua adequação de estratégia com justificativa |
+| `Contagion Narrative Agent` | Traduz o cluster de risco calculado em explicação de negócio: por que estes clientes acenderam juntos, o que os une |
+| `Document Extraction Agent` | Lê petição de RJ, contrato, CPR ou e-mail e extrai dados estruturados (valores, prazos, garantias) com fonte e confiança. Herdeiro direto da "extração assistida" da Tese |
+| `Annotation Normalizing Agent` | Anotações livres do gestor (impedimento, acordo verbal, promessa de pagamento) viram atualização estruturada nas dimensões |
+
+**Funções determinísticas (backend FastAPI):** motor de contágio, capacidade de pagamento, cobertura de garantia, valor da relação, filtro de estágio jurídico, todas as cinco dimensões do Nível 2, e a heurística do Nível 3.
+
+**Orchestrator:** watsonx Orchestrate coordena a sequência e chama o backend como tool (ARD-04, preservado).
+
+---
+
+## Pesos
+
+Uniformes dentro de cada nível no MVP — auditável e honesto no pitch: *"não calibramos com dados históricos reais porque ainda não os temos; cada dimensão pesa igual até existir base para ajustar"*. A `EXECUTADA` (memória de recuperação) é o mecanismo pelo qual esses pesos passariam a ser calibrados com dado real.
+
+---
+
+## Persistência da explicação
+
+A recomendação é **materializada** como `RECOMENDADA {score_decomposto, valor_recuperavel_estimado, prazo_estimado, calculado_em}` (ARD-05, preservado). A explicação não é recalculada a cada abertura de tela: fica gravada, datada e auditável — que é o que sustenta o R de GIRO num contexto de crédito.
+
+---
 
 ## Open Questions
 
-1. ~~Quais pesos iniciais usar?~~ Resolvido em 11/09 — uniformes dentro de cada nível para o MVP.
-2. ~~O MVP cobre os 3 níveis ou só Nível 1 e 2?~~ Resolvido em 10/09 — só Nível 1 e 2.
-3. Como popular o dataset seed artificial mencionado no Resumo Técnico (seção X — MVP)? Ligado à Open Question 3 do system-description.md (em stand-by até o case real).
-4. ~~Como o sistema deve se comportar quando nenhuma pessoa disponível atinge um score mínimo de adequação individual?~~ Resolvido em use-cases.md (UC-02/UC-04): sinaliza a lacuna e explica o porquê, mas sempre recomenda ao menos 1–2 candidatos, mesmo sem bater o limiar.
-5. ~~Quais dimensões dos Níveis 1/2 viram agente LLM de fato e quais viram função determinística?~~ Resolvido em 11/09 — ver tabelas de Nível 1/2 acima.
+| # | Questão | Owner | Status |
+|---|---|---|---|
+| 1 | Catálogo real de estratégias que a Krilltech usa hoje (o nosso é o padrão do mercado — pode não bater) | Erick / empresa | Open |
+| 2 | Capacidade operacional real do time de cobrança — insumo direto do Nível 3 | Erick / empresa | Open |
+| 3 | Pesos de contágio: manter uniformes/hipótese ou calibrar com conhecimento de domínio | Erick | Open |
+| 4 | `Document Extraction Agent` entra no build das 12h ou fica como demonstração conceitual no pitch? | Erick | Open — decidir antes das 9h |

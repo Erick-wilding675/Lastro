@@ -1,4 +1,5 @@
 # Score 0-1000 e rating A-D, exigidos pela seção 7.1 do desafio.
+# A cobertura de garantia usa haircut por tipo (ver bloco abaixo).
 # Score ALTO = risco BAIXO. A:800+ B:600+ C:400+ D:<400
 # Cinco componentes com peso uniforme — hipótese declarada, não calibrada.
 CALCULAR = """
@@ -16,10 +17,19 @@ WITH c, risco_pagamento, coalesce(max(e.severidade), 0.0) AS risco_juridico
 OPTIONAL MATCH (r:Recebivel)-[:DE]->(c) WHERE r.status IN ['aberto','vencido','em_acordo']
 WITH c, risco_pagamento, risco_juridico,
      coalesce(sum(r.valor_aberto), 0.0) AS exposicao,
-     coalesce(sum(r.garantia_valor), 0.0) AS garantia
+     // haircut por tipo: nem todo real de garantia vale um real.
+     // Penhor de safra evapora com a seca e entra no concurso da RJ;
+     // alienacao fiduciaria e extraconcursal e sobrevive.
+     coalesce(sum(r.garantia_valor * CASE r.garantia_tipo
+        WHEN 'alienacao_fiduciaria' THEN 1.0
+        WHEN 'aval'                 THEN 0.7
+        WHEN 'cpr'                  THEN 0.6
+        WHEN 'penhor_safra'         THEN 0.5
+        ELSE 0.0 END), 0.0) AS garantia_ajustada
 WITH c, risco_pagamento, risco_juridico, exposicao,
      CASE WHEN exposicao = 0 THEN 0.0
-          ELSE 1.0 - (CASE WHEN garantia/exposicao > 1.0 THEN 1.0 ELSE garantia/exposicao END)
+          ELSE 1.0 - (CASE WHEN garantia_ajustada/exposicao > 1.0 THEN 1.0
+                           ELSE garantia_ajustada/exposicao END)
      END AS risco_garantia
 OPTIONAL MATCH (:Cliente)-[x:EXPOSTO_A]->(c)
 WITH c, risco_pagamento, risco_juridico, risco_garantia, exposicao,

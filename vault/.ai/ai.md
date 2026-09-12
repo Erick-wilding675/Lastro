@@ -42,11 +42,15 @@ e prioriza a recuperação do que já venceu, sempre explicando o caminho.
 180 dias em que a Krilltech fica legalmente impedida de executar garantia ou
 protestar. Depois do pedido não há o que fazer. Todo o valor está em saber antes.
 
-**O diferencial técnico:** produtor rural não quebra sozinho. Quebra por grupo
-econômico, avalista comum, sócios em comum (QSA da Receita), revenda, região,
-cultura e safra. O grafo propaga esse risco multi-hop e acende os vizinhos
-expostos antes de virarem inadimplência — consulta que em SQL vira junção
-recursiva ilegível e em Cypher é uma query.
+**O diferencial técnico:** produtor rural não quebra sozinho. O Lastro separa dois
+canais de exposição — o **estrutural** (grupo econômico, avalista comum, sócio em
+comum via QSA) e o **sistêmico** (região, cultura, safra, revenda), este último só
+com peso cheio quando há evento regional confirmando o choque. O grafo propaga
+isso multi-hop e acende os vizinhos expostos antes de virarem inadimplência —
+consulta que em SQL vira junção recursiva ilegível e em Cypher é uma query.
+
+**Linguagem obrigatória:** o sistema mede *exposição compartilhada*, não prevê
+quem vai quebrar. Nunca prometa previsão de falência.
 
 **Prazos reais:** submissão do Project Canvas até **15:00 de 12/09**. Pitch de
 **3 minutos** a partir das 15:20. Entregáveis obrigatórios: Canvas e pitch.
@@ -81,9 +85,15 @@ Python/FastAPI + React. Código em `src/` (monólito modular — ver `src/README
 
 1. **O modelo recomenda, nunca decide sozinho.** Nada dispara cobrança, protesto
    ou ação judicial automaticamente.
-2. **GIRO não é opcional** — ver [harness.md](harness.md).
-3. **Contágio sempre explica o caminho.** Nunca mostrar "risco 0,8" sem dizer por
+2. **Toda decisão tem trilha de auditoria** (fonte, data, decomposição, quem
+   decidiu). No discurso externo isso se chama *trilha de auditoria da decisão de
+   crédito* — a sigla GIRO e o enquadramento de framework ficaram no projeto
+   anterior e **não entram no pitch**.
+3. **Exposição sempre explica o caminho.** Nunca mostrar "risco 0,8" sem dizer por
    qual vínculo esse risco chegou. O caminho é a explicação.
+   E **nunca prescrever instrumento jurídico** (alienação fiduciária, por
+   exemplo) à Krilltech: o sistema diagnostica fragilidade de garantia; qual
+   instrumento adotar é política de crédito deles.
 4. **O watsonx Orchestrate nunca fala com o driver do Neo4j.** Ele chama a API do
    backend (ARD-04). Credencial de banco dentro de agente é erro de arquitetura.
 5. **Toda aresta do grafo existe para responder uma pergunta de decisão.** Não

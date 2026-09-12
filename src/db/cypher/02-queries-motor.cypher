@@ -6,56 +6,84 @@
 
 
 // ---------------------------------------------------------------------
-// Q1 — MOTOR DE CONTÁGIO
-// A query estrela. Dado um cliente que deteriorou (pediu RJ, protestou,
-// estourou atraso), encontra quem mais está exposto e POR QUAL VÍNCULO.
-// O "via" é a explicação: nunca mostrar risco sem dizer de onde veio.
+// Q1 — MOTOR DE CONTÁGIO (dois canais)
 //
+// ESTRUTURAL: o risco de um contamina o outro por vínculo jurídico ou
+//   patrimonial. Grupo econômico, avalista compartilhado, sócio em comum.
+// SISTÊMICO: ninguém contamina ninguém, todos sofrem a MESMA causa (seca,
+//   praga, queda de cotação). Só entra com peso cheio se houver evento
+//   regional confirmando o choque — senão, um vizinho que quebrou por motivo
+//   próprio acenderia a microrregião inteira sem razão.
+//
+// O "via" é a explicação: nunca mostrar risco sem dizer de onde veio.
 // Parâmetro: $origem  (ex.: 'CLI001')
 // ---------------------------------------------------------------------
 
 MATCH (origem:Cliente {id: $origem})
 CALL {
+    // ---------- canal estrutural ----------
     WITH origem
     MATCH (origem)-[:PERTENCE_A]->(g:GrupoEconomico)<-[:PERTENCE_A]-(v:Cliente)
     WHERE v <> origem
-    RETURN v AS vizinho, 0.90 AS peso, 'Mesmo grupo econômico: ' + g.nome AS via
+    RETURN v AS vizinho, 0.90 AS peso, 'estrutural' AS canal,
+           'Mesmo grupo econômico: ' + g.nome AS via
   UNION
     WITH origem
     MATCH (origem)<-[:DE]-(:Recebivel)-[:GARANTIDO_POR]->(a:Avalista)
           <-[:GARANTIDO_POR]-(:Recebivel)-[:DE]->(v:Cliente)
     WHERE v <> origem
-    RETURN v AS vizinho, 0.85 AS peso, 'Avalista em comum: ' + a.nome AS via
+    RETURN v AS vizinho, 0.85 AS peso, 'estrutural' AS canal,
+           'Avalista em comum: ' + a.nome AS via
   UNION
     WITH origem
     MATCH (origem)-[:TEM_SOCIO]->(s:Socio)<-[:TEM_SOCIO]-(v:Cliente)
     WHERE v <> origem
-    RETURN v AS vizinho, 0.80 AS peso, 'Sócio em comum (QSA): ' + s.nome AS via
+    RETURN v AS vizinho, 0.70 AS peso, 'estrutural' AS canal,
+           'Sócio em comum (QSA): ' + s.nome AS via
   UNION
-    WITH origem
-    MATCH (origem)-[:COMPRA_VIA]->(rev:Cliente)<-[:COMPRA_VIA]-(v:Cliente)
-    WHERE v <> origem
-    RETURN v AS vizinho, 0.50 AS peso, 'Mesmo canal de revenda: ' + rev.nome AS via
-  UNION
+    // ---------- canal sistêmico ----------
     WITH origem
     MATCH (origem)-[:OPERA_EM]->(r:Regiao)<-[:OPERA_EM]-(v:Cliente),
           (origem)-[:PLANTA]->(cu:Cultura)<-[:PLANTA]-(v)
     WHERE v <> origem
-    RETURN v AS vizinho, 0.45 AS peso,
-           'Mesma região e cultura: ' + r.nome + ' / ' + cu.nome AS via
+    OPTIONAL MATCH (ev:Evento)-[:SOBRE]->(:Cliente)-[:OPERA_EM]->(r)
+      WHERE ev.tipo IN ['quebra_safra','alerta_zarc','queda_preco']
+        AND ev.data >= date() - duration({days: 365})
+    WITH v, r, cu, count(ev) > 0 AS choque
+    RETURN v AS vizinho,
+           CASE WHEN choque THEN 0.75 ELSE 0.30 END AS peso,
+           'sistemico' AS canal,
+           'Mesma região e cultura: ' + r.nome + ' / ' + cu.nome +
+             CASE WHEN choque THEN ' — choque regional confirmado por evento'
+                  ELSE ' — sem evento regional no período' END AS via
+  UNION
+    WITH origem
+    MATCH (origem)-[:COMPRA_VIA]->(rev:Cliente)<-[:COMPRA_VIA]-(v:Cliente)
+    WHERE v <> origem
+    RETURN v AS vizinho, 0.65 AS peso, 'sistemico' AS canal,
+           'Mesmo canal de revenda: ' + rev.nome AS via
+  UNION
+    WITH origem
+    MATCH (origem)-[:PLANTA]->(cu:Cultura)<-[:PLANTA]-(v:Cliente)
+    WHERE v <> origem
+    RETURN v AS vizinho, 0.40 AS peso, 'sistemico' AS canal,
+           'Mesma cultura: ' + cu.nome AS via
 }
-WITH vizinho, max(peso) AS risco_contagio, collect(via) AS caminhos
+WITH vizinho, max(peso) AS risco_exposicao, collect(via) AS caminhos,
+     collect(DISTINCT canal) AS canais
 MERGE (o:Cliente {id: $origem})-[x:EXPOSTO_A]->(vizinho)
-  SET x.peso = risco_contagio,
+  SET x.peso = risco_exposicao,
       x.caminho = caminhos,
+      x.canais = canais,
       x.calculado_em = datetime()
-RETURN vizinho.id            AS cliente,
-       vizinho.nome          AS nome,
-       vizinho.situacao      AS situacao_atual,
+RETURN vizinho.id              AS cliente,
+       vizinho.nome            AS nome,
+       vizinho.situacao        AS situacao_atual,
        vizinho.exposicao_total AS exposicao_rs,
-       risco_contagio,
+       risco_exposicao,
+       canais,
        caminhos
-ORDER BY risco_contagio DESC, exposicao_rs DESC;
+ORDER BY risco_exposicao DESC, exposicao_rs DESC;
 
 
 // ---------------------------------------------------------------------
@@ -88,11 +116,20 @@ WITH c, risco_pagamento, coalesce(max(e.severidade), 0.0) AS risco_juridico
 // componente 3: cobertura de garantia
 OPTIONAL MATCH (r:Recebivel)-[:DE]->(c) WHERE r.status IN ['aberto','vencido','em_acordo']
 WITH c, risco_pagamento, risco_juridico,
-     coalesce(sum(r.valor_aberto), 0.0)   AS exposicao,
-     coalesce(sum(r.garantia_valor), 0.0) AS garantia
+     coalesce(sum(r.valor_aberto), 0.0) AS exposicao,
+     // Haircut por tipo: nem todo real de garantia vale um real.
+     // Penhor de safra evapora com a seca e entra no concurso da RJ;
+     // alienacao fiduciaria e extraconcursal e sobrevive.
+     coalesce(sum(r.garantia_valor * CASE r.garantia_tipo
+        WHEN 'alienacao_fiduciaria' THEN 1.0
+        WHEN 'aval'                 THEN 0.7
+        WHEN 'cpr'                  THEN 0.6
+        WHEN 'penhor_safra'         THEN 0.5
+        ELSE 0.0 END), 0.0) AS garantia_ajustada
 WITH c, risco_pagamento, risco_juridico, exposicao,
      CASE WHEN exposicao = 0 THEN 0.0
-          ELSE 1.0 - (CASE WHEN garantia/exposicao > 1.0 THEN 1.0 ELSE garantia/exposicao END)
+          ELSE 1.0 - (CASE WHEN garantia_ajustada/exposicao > 1.0 THEN 1.0
+                           ELSE garantia_ajustada/exposicao END)
      END AS risco_garantia
 
 // componente 4: contágio herdado da rede
