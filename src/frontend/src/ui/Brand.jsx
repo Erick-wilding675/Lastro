@@ -1,0 +1,1 @@
+export default function Brand(){return <div className="brand"><div className="brand-mark"><span/><span/><span/></div><div className="wordmark">Lastro <small>KRILLTECH / CONTROL ROOM</small></div></div>}
