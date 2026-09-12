@@ -1,0 +1,9 @@
+# Hard Rule #8: nenhum dado real de produtor entra no repositório.
+# Tudo que o pipeline baixa ou deriva fica fora do git.
+data/raw/
+data/staging/
+carteira.csv
+.env
+
+# Dados internos do ERP: nunca versionados.
+data/interno/

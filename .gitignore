@@ -1,0 +1,34 @@
+# Dependências
+node_modules/
+
+# Build / cache
+dist/
+build/
+.vite/
+
+# Ambiente e segredos (NUNCA commitar)
+.env
+.env.*
+!.env.example
+
+# Deploy
+.vercel/
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Dados de ingestão: nenhum dado real de produtor entra no repositório
+# (Hard Rule #8). O src/db/ingestao/.gitignore detalha.
+src/db/ingestao/data/
+src/db/ingestao/carteira.csv
+
+# Worktrees de agentes em paralelo (ver vault/.ai/workflows/parallel-agents.md)
+.worktrees/

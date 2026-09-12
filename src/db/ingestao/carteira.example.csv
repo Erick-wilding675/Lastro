@@ -1,0 +1,3 @@
+id,documento,nome,tipo,uf,municipio,codigo_municipio_ibge
+CLI001,00000000000000,Preencha com o CNPJ real do cliente,produtor_pj,GO,Rio Verde,5218805
+CLI002,00000000000,Cliente PF: CPF sem pontuacao (sem QSA publica),produtor_pf,GO,Jatai,5211909
