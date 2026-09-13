@@ -1,0 +1,4 @@
+# Ferramentas de desenvolvimento (raiz do repo, instalado no venv unico).
+# Nao confundir com src/backend/requirements.txt e src/db/ingestao/requirements.txt,
+# que sao as dependencias de runtime de cada modulo.
+ruff==0.16.7

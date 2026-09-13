@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { filaNotificacoes } from '../lib/notificacoes';
+import { carregarNotificacoes } from '../lib/notificacoes';
 
 const Ctx = createContext(null);
 export const useNotificacoes = () => useContext(Ctx);
@@ -12,16 +12,26 @@ export default function NotificacoesProvider({ children }){
   const [lista, setLista] = useState([]);
 
   useEffect(() => {
-    let i = 0;
+    let vivo = true;
     let iv = null;
-    const push = () => {
-      if (i >= filaNotificacoes.length) { if (iv) clearInterval(iv); return; } // uma passada só, sem loop
-      const base = filaNotificacoes[i]; i += 1;
-      const hora = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
-      setLista(l => [{ ...base, uid:`${base.cliente}-${Date.now()}`, hora, lida:false }, ...l].slice(0, MAX));
-    };
-    const t0 = setTimeout(() => { push(); iv = setInterval(push, INTERVALO); }, PRIMEIRA);
-    return () => { clearTimeout(t0); if (iv) clearInterval(iv); };
+    let t0 = null;
+
+    // A fila agora vem do motor (POST /motor/ciclo): cada alerta é um vínculo
+    // de contágio que o grafo realmente encontrou. O gotejar continua — é o que
+    // faz a rede parecer viva na demo — mas o conteúdo deixou de ser fixo.
+    carregarNotificacoes().then(fila => {
+      if (!vivo) return;
+      let i = 0;
+      const push = () => {
+        if (i >= fila.length) { if (iv) clearInterval(iv); return; }  // uma passada só, sem loop
+        const base = fila[i]; i += 1;
+        const hora = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+        setLista(l => [{ ...base, uid:`${base.cliente}-${i}-${Date.now()}`, hora, lida:false }, ...l].slice(0, MAX));
+      };
+      t0 = setTimeout(() => { push(); iv = setInterval(push, INTERVALO); }, PRIMEIRA);
+    });
+
+    return () => { vivo = false; if (t0) clearTimeout(t0); if (iv) clearInterval(iv); };
   }, []);
 
   const naoLidas = lista.filter(n => !n.lida).length;

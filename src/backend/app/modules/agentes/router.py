@@ -27,16 +27,41 @@ RETURN c{.id,.nome,.situacao,.rating,.score,.exposicao_total,.dias_atraso_max} A
        collect(DISTINCT e{.tipo,.data,.fonte,.severidade,.descricao}) AS eventos
 """
 
+# Cada bloco coleta em subquery própria, e não em OPTIONAL MATCH encadeado.
+# Encadeado, os três conjuntos fazem produto cartesiano entre si antes do
+# collect — e, pior, a ordenação se perde: quem lê `recomendacoes[0]` como "a
+# recomendação" (é o que o painel do frontend faz) recebia uma qualquer, não a
+# de maior índice.
 DOSSIE = """
 MATCH (c:Cliente {id:$cliente})
-OPTIONAL MATCH (origem:Cliente)-[x:EXPOSTO_A]->(c)
-OPTIONAL MATCH (c)-[rec:RECOMENDADA]->(est:EstrategiaRecuperacao)
-OPTIONAL MATCH (r:Recebivel)-[:DE]->(c) WHERE r.status IN ['aberto','vencido']
+CALL {
+  WITH c
+  OPTIONAL MATCH (origem:Cliente)-[x:EXPOSTO_A]->(c)
+  WITH origem, x ORDER BY x.peso DESC
+  RETURN collect(CASE WHEN origem IS NULL THEN NULL ELSE
+           {de:origem.nome, id:origem.id, peso:x.peso,
+            caminho:x.caminho, canais:x.canais} END) AS contagio
+}
+CALL {
+  WITH c
+  OPTIONAL MATCH (c)-[rec:RECOMENDADA]->(est:EstrategiaRecuperacao)
+  WITH rec, est ORDER BY rec.indice DESC
+  RETURN collect(CASE WHEN est IS NULL THEN NULL ELSE
+           {estrategia:est.nome, recuperavel:rec.valor_recuperavel_estimado,
+            prazo:rec.prazo_estimado, indice:rec.indice,
+            executada_em:toString(rec.executada_em)} END) AS recomendacoes
+}
+CALL {
+  WITH c
+  OPTIONAL MATCH (r:Recebivel)-[:DE]->(c) WHERE r.status IN ['aberto','vencido']
+  WITH r ORDER BY r.dias_atraso DESC
+  RETURN collect(CASE WHEN r IS NULL THEN NULL ELSE
+           r{.id,.valor_aberto,.dias_atraso,.garantia_tipo,.estagio_juridico} END) AS recebiveis
+}
 RETURN c{.id,.nome,.situacao,.rating,.score,.score_decomposto,.exposicao_total} AS cliente,
-       collect(DISTINCT {de:origem.nome, peso:x.peso, caminho:x.caminho}) AS contagio,
-       collect(DISTINCT {estrategia:est.nome, recuperavel:rec.valor_recuperavel_estimado,
-                         prazo:rec.prazo_estimado, indice:rec.indice}) AS recomendacoes,
-       collect(DISTINCT r{.id,.valor_aberto,.dias_atraso,.garantia_tipo,.estagio_juridico}) AS recebiveis
+       [v IN contagio WHERE v IS NOT NULL] AS contagio,
+       [v IN recomendacoes WHERE v IS NOT NULL] AS recomendacoes,
+       [v IN recebiveis WHERE v IS NOT NULL] AS recebiveis
 """
 
 

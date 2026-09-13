@@ -1,1 +1,1 @@
-Veja [vault/.ai/ai.md](vault/.ai/ai.md) para o contexto do projeto e instruções.
+Veja [.ai/ai.md](.ai/ai.md) para o contexto do projeto e instruções.

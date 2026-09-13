@@ -81,4 +81,6 @@ export const demoFila = [
   {cliente:'CLI008',nome:'Agroindústria Rio Claro S/A',melhor:{estrategia:'Acordo parcelado',recuperavel:96000,prazo:90}},
 ];
 
-export const USE_DEMO = import.meta.env.VITE_DEMO_MODE !== 'false';
+// A decisão de usar (ou não) estes dados mora em `api.js` — aqui só o conteúdo.
+// Servem como reserva quando o backend não responde, e como demo forçada
+// com VITE_DEMO_MODE=true. O padrão é a API real.

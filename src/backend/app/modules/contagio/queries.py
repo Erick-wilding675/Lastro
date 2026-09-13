@@ -9,7 +9,7 @@ Este canal só entra com peso cheio quando existe um evento regional
 confirmando o choque. Sem evento confirmado, entra reduzido: um vizinho que
 quebrou por motivo próprio não é motivo para acender a microrregião inteira.
 
-Pesos são hipótese declarada e auditável (ver vault/.ai/docs/matching-model.md).
+Pesos são hipótese declarada e auditável (ver .ai/docs/matching-model.md).
 """
 
 PROPAGAR = """

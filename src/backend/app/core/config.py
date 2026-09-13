@@ -9,7 +9,10 @@ class Settings(BaseSettings):
     neo4j_user: str = "neo4j"
     neo4j_password: str = ""
     neo4j_database: str = "neo4j"
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # Previews da Vercel nascem com hostname novo a cada deploy; listar um a um
+    # não escala. O regex cobre o projeto inteiro sem abrir a API para todo mundo.
+    cors_origin_regex: str = r"https://.*\.vercel\.app"
 
     @property
     def cors_list(self) -> list[str]:

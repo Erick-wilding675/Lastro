@@ -18,17 +18,23 @@ build/
 .DS_Store
 Thumbs.db
 *.log
+.obsidian/
+
+# Scratch de agentes de IA (rascunhos, nao sao a fonte de verdade da doc)
+outputs/
+Claude outputs/
 
 # Python
 __pycache__/
 *.py[cod]
 .venv/
 venv/
+.ruff_cache/
 
 # Dados de ingestão: nenhum dado real de produtor entra no repositório
 # (Hard Rule #8). O src/db/ingestao/.gitignore detalha.
 src/db/ingestao/data/
 src/db/ingestao/carteira.csv
 
-# Worktrees de agentes em paralelo (ver vault/.ai/workflows/parallel-agents.md)
+# Worktrees de agentes em paralelo (ver .ai/workflows/parallel-agents.md)
 .worktrees/

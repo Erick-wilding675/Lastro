@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { useParams, useOutletContext, useSearchParams, Link } from 'react-router-dom';
-import { propagacaoPorEvento } from '../../lib/notificacoes';
+import { carregarPropagacao } from '../../lib/notificacoes';
 
 const STEPS = ['Evento detectado', 'Contágio propagado', 'Risco recalculado', 'Recuperação priorizada'];
 const vg = (p) => p.toFixed(2).replace('.', ',');
@@ -8,7 +9,22 @@ export default function PaginaPropagacao(){
   const { id } = useParams();
   const [sp] = useSearchParams();
   const ctx = useOutletContext() || {};
-  const dados = propagacaoPorEvento[id] ?? propagacaoPorEvento.CLI001;
+
+  // O mapa vem do motor: propaga a partir de `id` e desenha quem acendeu.
+  // Antes esta tela era o único ponto do app com o grafo escrito à mão.
+  const [dados, setDados] = useState(null);
+  useEffect(() => {
+    let vivo = true;
+    carregarPropagacao(id).then(d => vivo && setDados(d));
+    return () => { vivo = false; };
+  }, [id]);
+
+  if (!dados) return (
+    <main className="page">
+      <div className="graph-empty">Propagando risco de <strong>{id}</strong> pela rede…</div>
+    </main>
+  );
+
   const { gatilho, acesos, controle } = dados;
 
   const foco = sp.get('foco');

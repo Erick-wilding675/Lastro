@@ -1,0 +1,21 @@
+# Blueprint do backend. As credenciais NÃO vêm daqui: `sync: false` faz o
+# Render pedir o valor na criação e guardar como secret.
+services:
+  - type: web
+    name: lastro-api
+    runtime: docker
+    rootDir: src/backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_USER
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: NEO4J_DATABASE
+        value: neo4j
+      - key: CORS_ORIGINS
+        sync: false
